@@ -48,10 +48,18 @@ The main open research questions in deep learning-based profiling side-channel a
 
 The main goals of this research are:
 - To do a literature review of hyperparameter search techniques;
-- To propose a hyperparameter tuning method that is more efficient than naive grid and random search processes (i.e., with more guarantees of convergence);
+- To propose a hyperparameter tuning method that is more efficient than naive grid and random search processes (i.e., with more guarantees of convergence). 
+There is no need to run random search and grid search, as there are plenty of published papers with results with these methods;
 - To propose a method the does self-adaption of its hyperparameter ranges;
 - To propose a method in which the hyperparameter search strategy is related to the noise/SNR levels of side-channel measurements.
 - Investigate if there is a minimum required SNR level vs number of measurements that a hyperparameter tuning can find an efficient method with N searches. 
+
+## Datasets 
+
+The research can be conducted with the following datasets:
+- ASCAD (https://github.com/ANSSI-FR/ASCAD)
+- ESHARD (https://eshard.com/posts/masked-and-shuffled-dataset-for-sca)
+- DPAv4.2 (http://aisylabdatasets.ewi.tudelft.nl/dpav42/)
 
 
 
