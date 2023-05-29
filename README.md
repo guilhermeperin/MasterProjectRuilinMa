@@ -37,9 +37,21 @@ research on deep learning-based side-channel analysis have commonly considered a
 and some light hyperparameter tuning methods are enough to find neural networks (MLPs, CNNs, Resnets, AutoEncoders) with good performances. Most adopted
 hyperparameter methods are grid search and random search. Reinforcement learning and Bayesian Optimization have been proposed, however with limited publications.
 
+## Main open problems
+
+The main open research questions in deep learning-based profiling side-channel analysis, with respect to hyperparameter tuning are:
+- How to run a hyperparameter tuning process that increases the convergence to an optimal result (grid and random searches provide no guarantees);
+- How to implement a hyperparameter search for different levels of SNR (i.e., noise) in side-channel measurements.
+- How to spend hyperparameter tuning resources efficiently (similar to successive halving)? Here we must take into account that aborting a model training too soon just because the metrics indicate bad performance might not be efficient (the model could require a longer training).
+
 ## Research Objectives
 
-
+The main goals of this research are:
+- To do a literature review of hyperparameter search techniques;
+- To propose a hyperparameter tuning method that is more efficient than naive grid and random search processes (i.e., with more guarantees of convergence);
+- To propose a method the does self-adaption of its hyperparameter ranges;
+- To propose a method in which the hyperparameter search strategy is related to the noise/SNR levels of side-channel measurements.
+- Investigate if there is a minimum required SNR level vs number of measurements that a hyperparameter tuning can find an efficient method with N searches. 
 
 
 
