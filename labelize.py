@@ -54,11 +54,11 @@ class TargetLabels:
         self.correct_key_attack = np.zeros(16)
 
         for kb in range(16):
-            if dataset_name == "ascadf":
+            if dataset_name == "ASCADr":
                 self.round_key = "4DFBE0F27221FE10A78D4ADC8E490469"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
-            if dataset_name == "ascadr":
+            if dataset_name == "ASCADf":
                 self.round_key = "00112233445566778899AABBCCDDEEFF"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
@@ -77,7 +77,7 @@ class TargetLabels:
                 self.round_key = "175cf2997a8583413c77dfac7e6c59d8"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
-            if dataset_name == "eshard":
+            if dataset_name == "ESHARD":
                 self.round_key = "077BDA0FAB1E5501EAD0150AB1E020FE"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
