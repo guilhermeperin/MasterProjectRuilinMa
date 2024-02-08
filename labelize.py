@@ -142,15 +142,15 @@ class TargetLabels:
                                                                                          self.round_key)
                 self.labels_key_hypothesis_attack[kb] = self.create_labels_key_guess(attack_plaintexts, self.round_key)
 
-        if self.dataset_name == "ascadf":
+        if self.dataset_name == "ASCADf":
             create_intermediates_fn = self.create_intermediates_ascadf
-        elif self.dataset_name == "ascadr":
+        elif self.dataset_name == "ASCADr":
             create_intermediates_fn = self.create_intermediates_ascadr
         elif self.dataset_name == "dpav42":
             create_intermediates_fn = self.create_intermediates_dpav42
         elif self.dataset_name == "chesctf":
             create_intermediates_fn = self.create_intermediates_chesctf
-        elif self.dataset_name == "eshard":
+        elif self.dataset_name == "ESHARD":
             create_intermediates_fn = self.create_intermediates_eshard
         elif self.dataset_name == "aes_sim":
             create_intermediates_fn = self.create_intermediates_ascadr
