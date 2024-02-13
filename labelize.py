@@ -53,12 +53,13 @@ class TargetLabels:
         self.correct_key_validation = np.zeros(16)
         self.correct_key_attack = np.zeros(16)
 
+
         for kb in range(16):
-            if dataset_name == "ASCADr":
+            if dataset_name == "ascadr":
                 self.round_key = "4DFBE0F27221FE10A78D4ADC8E490469"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
-            if dataset_name == "ASCADf":
+            if dataset_name == "ascadf":
                 self.round_key = "00112233445566778899AABBCCDDEEFF"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
@@ -77,7 +78,7 @@ class TargetLabels:
                 self.round_key = "175cf2997a8583413c77dfac7e6c59d8"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
-            if dataset_name == "ESHARD":
+            if dataset_name == "eshard":
                 self.round_key = "077BDA0FAB1E5501EAD0150AB1E020FE"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
@@ -142,15 +143,15 @@ class TargetLabels:
                                                                                          self.round_key)
                 self.labels_key_hypothesis_attack[kb] = self.create_labels_key_guess(attack_plaintexts, self.round_key)
 
-        if self.dataset_name == "ASCADf":
+        if self.dataset_name == "ascadf":
             create_intermediates_fn = self.create_intermediates_ascadf
-        elif self.dataset_name == "ASCADr":
+        elif self.dataset_name == "ascadr":
             create_intermediates_fn = self.create_intermediates_ascadr
         elif self.dataset_name == "dpav42":
             create_intermediates_fn = self.create_intermediates_dpav42
         elif self.dataset_name == "chesctf":
             create_intermediates_fn = self.create_intermediates_chesctf
-        elif self.dataset_name == "ESHARD":
+        elif self.dataset_name == "eshard":
             create_intermediates_fn = self.create_intermediates_eshard
         elif self.dataset_name == "aes_sim":
             create_intermediates_fn = self.create_intermediates_ascadr

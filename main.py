@@ -4,13 +4,16 @@ from sklearn.preprocessing import StandardScaler
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import *
+from tqdm.keras import TqdmCallback
+import sys
+from tensorflow.keras.callbacks import Callback
 
 current_directory, datasets_path = initialize_path()
 
 # download datasets
-download_ascad_fixed_keys()
-download_ascad_random_keys()
-download_eshard()
+# download_ascad_fixed_keys()
+# download_ascad_random_keys()
+# download_eshard()
 
 # define a target key byte:
 target_key_byte = 2
@@ -51,17 +54,29 @@ model.add(Dense(classes, activation='softmax'))
 # Compile the model
 model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
-# training process
+class ElegantProgressCallback(Callback):
+    def on_train_begin(self, logs=None):
+        self.total_epochs = self.params['epochs']
+
+    def on_epoch_end(self, epoch, logs=None):
+        completed = (epoch + 1) / self.total_epochs
+        bar_length = 30
+        block = int(round(bar_length * completed))
+        text = "\rProgress: [{}] {:.0f}% - epoch {}/{} - loss: {:.4f} - accuracy: {:.4f}".format(
+            "=" * block + " " * (bar_length - block), completed * 100, epoch + 1, self.total_epochs, logs['loss'], logs['accuracy'])
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+# training process with tqdm progress bar
 history = model.fit(
     x=profiling_set,
     y=dataset_labels.y_profiling[target_key_byte],
     batch_size=batch_size,
     epochs=epochs,
-    verbose=2,
+    verbose=0,  # Verbose is set to 0 as the callback handles the output
     validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
     shuffle=True,
-    callbacks=[]
+    callbacks=[ElegantProgressCallback()]
 )
-
 # metrics
 ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)

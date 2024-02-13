@@ -74,13 +74,15 @@ def prepare_dataset(datasets_directory, dataset_select, target_byte, leakage_mod
         n_val = 5000
         n_attack = 5000
         ns = 25000
-    else:
-        dataset_name = "ESHARD"
+    elif dataset_select == "ESHARD":
+        dataset_name = "eshard"
         dataset_filepath = os.path.join(datasets_directory, "eshard.h5")
         n_prof = 90000
         n_val = 5000
         n_attack = 5000
         ns = 1400
+    else:
+        raise ValueError("Unknown dataset")
 
     dataset_labels = TargetLabels(dataset_name, n_prof, n_val, n_attack, target_byte, leakage_model, dataset_filepath)
 
