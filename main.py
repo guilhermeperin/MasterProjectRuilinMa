@@ -7,6 +7,9 @@ from keras.optimizers import *
 from tqdm.keras import TqdmCallback
 import sys
 from tensorflow.keras.callbacks import Callback
+import tensorflow as tf
+
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 current_directory, datasets_path = initialize_path()
 
@@ -41,7 +44,7 @@ attack_set = scaler.transform(attack_set)
 
 # define the model
 batch_size = 400
-epochs = 20
+epochs = 200
 
 # Define the architecture of the MLP
 model = Sequential()
@@ -53,6 +56,11 @@ model.add(Dense(classes, activation='softmax'))
 
 # Compile the model
 model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+
+# define the model
+batch_size = 400
+total_epochs = 2000
+epochs_per_phase = 200
 
 class ElegantProgressCallback(Callback):
     def on_train_begin(self, logs=None):
@@ -67,16 +75,33 @@ class ElegantProgressCallback(Callback):
         sys.stdout.write(text)
         sys.stdout.flush()
 
-# training process with tqdm progress bar
-history = model.fit(
-    x=profiling_set,
-    y=dataset_labels.y_profiling[target_key_byte],
-    batch_size=batch_size,
-    epochs=epochs,
-    verbose=0,  # Verbose is set to 0 as the callback handles the output
-    validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
-    shuffle=True,
-    callbacks=[ElegantProgressCallback()]
-)
-# metrics
-ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
+# Initialize history
+history = {
+    'loss': [],
+    'accuracy': [],
+    'val_loss': [],
+    'val_accuracy': []
+}
+
+# Train in phases
+for phase in range(total_epochs // epochs_per_phase):
+    print(f"\nTraining Phase: {phase + 1}/{total_epochs // epochs_per_phase}")
+
+    # training process with tqdm progress bar
+    phase_history = model.fit(
+        x=profiling_set,
+        y=dataset_labels.y_profiling[target_key_byte],
+        batch_size=batch_size,
+        epochs=epochs_per_phase,
+        verbose=0,  # Verbose is set to 0 as the callback handles the output
+        validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
+        shuffle=True,
+        callbacks=[ElegantProgressCallback()]
+    )
+
+    # Append phase history to overall history
+    for key in history:
+        history[key].extend(phase_history.history[key])
+
+    ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
+
