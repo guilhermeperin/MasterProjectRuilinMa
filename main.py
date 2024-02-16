@@ -1,3 +1,4 @@
+import os
 from datasets import *
 from metrics import *
 from sklearn.preprocessing import StandardScaler
@@ -10,6 +11,9 @@ from tensorflow.keras.callbacks import Callback
 import tensorflow as tf
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 current_directory, datasets_path = initialize_path()
 
@@ -27,7 +31,7 @@ else:
     classes = 9
 
 # labelize and define properties
-dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ASCADf", target_key_byte, leakage_model)
+dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ESHARD", target_key_byte, leakage_model)
 
 # open the samples
 in_file = h5py.File(dataset_properties["filepath"], "r")
@@ -48,10 +52,10 @@ epochs = 200
 
 # Define the architecture of the MLP
 model = Sequential()
-model.add(Dense(100, input_dim=profiling_set.shape[1], activation='elu'))
-model.add(Dense(100, activation='elu'))
-model.add(Dense(100, activation='elu'))
-model.add(Dense(100, activation='elu'))
+model.add(Dense(100, input_dim=profiling_set.shape[1], activation='selu'))
+model.add(Dense(100, activation='selu'))
+model.add(Dense(100, activation='selu'))
+model.add(Dense(100, activation='selu'))
 model.add(Dense(classes, activation='softmax'))
 
 # Compile the model
@@ -59,8 +63,8 @@ model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.00
 
 # define the model
 batch_size = 400
-total_epochs = 2000
-epochs_per_phase = 200
+total_epochs = 200
+epochs_per_phase = 20
 
 class ElegantProgressCallback(Callback):
     def on_train_begin(self, logs=None):
@@ -93,7 +97,7 @@ for phase in range(total_epochs // epochs_per_phase):
         y=dataset_labels.y_profiling[target_key_byte],
         batch_size=batch_size,
         epochs=epochs_per_phase,
-        verbose=0,  # Verbose is set to 0 as the callback handles the output
+        verbose=2,  # Verbose is set to 0 as the callback handles the output
         validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
         shuffle=True,
         callbacks=[ElegantProgressCallback()]

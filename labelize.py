@@ -56,11 +56,11 @@ class TargetLabels:
 
         for kb in range(16):
             if dataset_name == "ascadr":
-                self.round_key = "4DFBE0F27221FE10A78D4ADC8E490469"
+                self.round_key = "00112233445566778899AABBCCDDEEFF"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
             if dataset_name == "ascadf":
-                self.round_key = "00112233445566778899AABBCCDDEEFF"
+                self.round_key = "4DFBE0F27221FE10A78D4ADC8E490469"
                 self.correct_key_validation[kb] = bytearray.fromhex(self.round_key)[kb]
                 self.correct_key_attack[kb] = bytearray.fromhex(self.round_key)[kb]
             if dataset_name == "dpav42":
