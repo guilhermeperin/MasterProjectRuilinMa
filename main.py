@@ -9,6 +9,8 @@ from tqdm.keras import TqdmCallback
 import sys
 from tensorflow.keras.callbacks import Callback
 import tensorflow as tf
+import json
+import datetime
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 # import os
@@ -31,7 +33,7 @@ else:
     classes = 9
 
 # labelize and define properties
-dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ESHARD", target_key_byte, leakage_model)
+dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ASCADf", target_key_byte, leakage_model)
 
 # open the samples
 in_file = h5py.File(dataset_properties["filepath"], "r")
@@ -49,6 +51,8 @@ attack_set = scaler.transform(attack_set)
 # define the model
 batch_size = 400
 epochs = 200
+total_epochs = 30
+epochs_per_phase = 10
 
 # Define the architecture of the MLP
 model = Sequential()
@@ -61,10 +65,6 @@ model.add(Dense(classes, activation='softmax'))
 # Compile the model
 model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
-# define the model
-batch_size = 400
-total_epochs = 200
-epochs_per_phase = 20
 
 class ElegantProgressCallback(Callback):
     def on_train_begin(self, logs=None):
@@ -87,6 +87,25 @@ history = {
     'val_accuracy': []
 }
 
+def save_model_architecture(model, filepath):
+    with open(filepath, 'a') as file:
+        file.write(f"Experiment Time: {datetime.datetime.now()}\n")
+        file.write("\nModel Architecture:\n")
+        for layer in model.layers:
+            layer_details = f"Layer Type: {layer.__class__.__name__}, "
+            layer_details += f"Output Units: {layer.output_shape}, "
+            layer_details += f"Activation: {layer.activation.__name__ if hasattr(layer, 'activation') else 'N/A'}, "
+            layer_details += f"Input Shape: {layer.input_shape if hasattr(layer, 'input_shape') else 'N/A'}\n"
+            file.write(layer_details)
+
+def log_experiment_details(filepath, ge, nt, pi):
+    with open(filepath, 'a') as file:
+        file.write(f"GE: {ge}, Number of Traces to Reach GE: {nt}, PI: {pi}\n")
+        file.write("\n")
+
+
+experiment_log_file = "experiment_log.txt"
+
 # Train in phases
 for phase in range(total_epochs // epochs_per_phase):
     print(f"\nTraining Phase: {phase + 1}/{total_epochs // epochs_per_phase}")
@@ -97,7 +116,7 @@ for phase in range(total_epochs // epochs_per_phase):
         y=dataset_labels.y_profiling[target_key_byte],
         batch_size=batch_size,
         epochs=epochs_per_phase,
-        verbose=2,  # Verbose is set to 0 as the callback handles the output
+        verbose=1, # 0 for no logging to stdout, 1 for progress bar logging, 2 for one log line per epoch
         validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
         shuffle=True,
         callbacks=[ElegantProgressCallback()]
@@ -108,4 +127,6 @@ for phase in range(total_epochs // epochs_per_phase):
         history[key].extend(phase_history.history[key])
 
     ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
+    save_model_architecture(model, experiment_log_file)
+    log_experiment_details(experiment_log_file, ge, nt, pi)
 
