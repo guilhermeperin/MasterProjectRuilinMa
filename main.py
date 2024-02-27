@@ -13,6 +13,7 @@ import json
 import datetime
 import numpy as np
 import random
+from keras.callbacks import EarlyStopping
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 # import os
@@ -53,15 +54,15 @@ attack_set = scaler.transform(attack_set)
 # define the model
 batch_size = 400
 epochs = 200
-total_epochs = 80
-epochs_per_phase = 10
+total_epochs = 100
+epochs_per_phase = 20
 activation_functions = ['relu', 'selu', 'sigmoid', 'tanh']
 
 
 def generate_random_configuration():
-    num_layers = random.randint(2, 5)  # Choose between 2 and 5 layers
-    neurons_per_layer = [random.randint(50, 200) for _ in range(num_layers)]  # Neuron count per layer
-    activation = random.choice(activation_functions)  # Choose one activation function for all layers
+    num_layers = random.randint(2, 5)
+    neurons_per_layer = [random.randint(50, 200) for _ in range(num_layers)]
+    activation = random.choice(activation_functions)
     return num_layers, neurons_per_layer, activation
 
 
@@ -75,6 +76,17 @@ def build_model_with_configuration(input_shape, num_classes, num_layers, neurons
     # Output layer
     model.add(Dense(num_classes, activation='softmax'))
     return model
+
+def add_early_stopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=1, mode='auto'):
+    early_stopping = EarlyStopping(
+        monitor=monitor,
+        min_delta=min_delta,
+        patience=patience,
+        verbose=verbose,
+        mode=mode,
+        restore_best_weights=True
+    )
+    return early_stopping
 
 
 # # Define the architecture of the MLP
@@ -142,16 +154,20 @@ for phase in range(total_epochs // epochs_per_phase):
     # Compile the model
     model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
-    # training process with tqdm progress bar
+    # Add early stopping callback
+    callbacks = [add_early_stopping(monitor='val_loss', min_delta=0.001, patience=5, verbose=1),
+                 ElegantProgressCallback()]
+
+    # Training process with early stopping and tqdm progress bar
     phase_history = model.fit(
         x=profiling_set,
         y=dataset_labels.y_profiling[target_key_byte],
         batch_size=batch_size,
         epochs=epochs_per_phase,
-        verbose=1, # 0 for no logging to stdout, 1 for progress bar logging, 2 for one log line per epoch
+        verbose=0,# 0 for no logging to stdout, 1 for progress bar logging, 2 for epoch logging
         validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
         shuffle=True,
-        callbacks=[ElegantProgressCallback()]
+        callbacks=callbacks
     )
 
     # Append phase history to overall history
@@ -161,4 +177,3 @@ for phase in range(total_epochs // epochs_per_phase):
     ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
     save_model_architecture(model, experiment_log_file)
     log_experiment_details(experiment_log_file, ge, nt, pi)
-
