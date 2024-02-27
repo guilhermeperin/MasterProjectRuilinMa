@@ -11,6 +11,8 @@ from tensorflow.keras.callbacks import Callback
 import tensorflow as tf
 import json
 import datetime
+import numpy as np
+import random
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 # import os
@@ -51,19 +53,40 @@ attack_set = scaler.transform(attack_set)
 # define the model
 batch_size = 400
 epochs = 200
-total_epochs = 30
+total_epochs = 80
 epochs_per_phase = 10
+activation_functions = ['relu', 'selu', 'sigmoid', 'tanh']
 
-# Define the architecture of the MLP
-model = Sequential()
-model.add(Dense(100, input_dim=profiling_set.shape[1], activation='selu'))
-model.add(Dense(100, activation='selu'))
-model.add(Dense(100, activation='selu'))
-model.add(Dense(100, activation='selu'))
-model.add(Dense(classes, activation='softmax'))
 
-# Compile the model
-model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+def generate_random_configuration():
+    num_layers = random.randint(2, 5)  # Choose between 2 and 5 layers
+    neurons_per_layer = [random.randint(50, 200) for _ in range(num_layers)]  # Neuron count per layer
+    activation = random.choice(activation_functions)  # Choose one activation function for all layers
+    return num_layers, neurons_per_layer, activation
+
+
+def build_model_with_configuration(input_shape, num_classes, num_layers, neurons_per_layer, activation):
+    model = Sequential()
+    # Input layer
+    model.add(Dense(neurons_per_layer[0], input_dim=input_shape, activation=activation))
+    # Hidden layers
+    for i in range(1, num_layers):
+        model.add(Dense(neurons_per_layer[i], activation=activation))
+    # Output layer
+    model.add(Dense(num_classes, activation='softmax'))
+    return model
+
+
+# # Define the architecture of the MLP
+# model = Sequential()
+# model.add(Dense(100, input_dim=profiling_set.shape[1], activation='selu'))
+# model.add(Dense(100, activation='selu'))
+# model.add(Dense(100, activation='selu'))
+# model.add(Dense(100, activation='selu'))
+# model.add(Dense(classes, activation='softmax'))
+
+# # Compile the model
+# model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
 
 class ElegantProgressCallback(Callback):
@@ -109,6 +132,15 @@ experiment_log_file = "experiment_log.txt"
 # Train in phases
 for phase in range(total_epochs // epochs_per_phase):
     print(f"\nTraining Phase: {phase + 1}/{total_epochs // epochs_per_phase}")
+
+    # Generate a random configuration for this phase
+    num_layers, neurons_per_layer, activation = generate_random_configuration()
+
+    # Build the model with the generated configuration
+    model = build_model_with_configuration(profiling_set.shape[1], classes, num_layers, neurons_per_layer, activation)
+
+    # Compile the model
+    model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
     # training process with tqdm progress bar
     phase_history = model.fit(
