@@ -1,8 +1,7 @@
 import h5py
-from keras.callbacks import EarlyStopping
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.regularizers import l1
+from keras.regularizers import l2
 from keras.optimizers import Adam
 from sklearn.preprocessing import StandardScaler
 from datasets import *
@@ -33,8 +32,7 @@ dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ASCADf", ta
 in_file = h5py.File(dataset_properties["filepath"], "r")
 profiling_set = in_file['Profiling_traces/traces']
 validation_set = in_file['Attack_traces/traces'][:dataset_properties["n_val"]]
-attack_set = in_file['Attack_traces/traces'][
-             dataset_properties["n_val"]:dataset_properties["n_val"] + dataset_properties["n_attack"]]
+attack_set = in_file['Attack_traces/traces'][dataset_properties["n_val"]:dataset_properties["n_val"] + dataset_properties["n_attack"]]
 
 # Normalize the data
 scaler = StandardScaler()
@@ -42,11 +40,10 @@ profiling_set = scaler.fit_transform(profiling_set)
 validation_set = scaler.transform(validation_set)
 attack_set = scaler.transform(attack_set)
 
-# L1 regularization values to explore
-l1_values = np.linspace(0, 2.5e-4, 500)
+# L2 regularization values to explore
+l2_values = np.linspace(0, 2.5e-4, 500)
 
 results = []
-early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
 def log_details(file_path, details, is_start=False, is_end=False):
     with open(file_path, 'a') as f:
@@ -55,30 +52,30 @@ def log_details(file_path, details, is_start=False, is_end=False):
         elif is_end:
             f.write("\n--- End of Execution ---\n\n")
         else:
-            # Log the details with formatted L1 value
-            log_entry = f"{details['timestamp']}, L1: {details['l1']:.3e}, Batch Size: {details['batch_size']}, Epochs: {details['epochs']}, Learning Rate: {details['learning_rate']}, GE: {details['ge']}, NT: {details['nt']}, PI: {details['pi']:.5e}\n"
+            # Log the details with formatted L2 value
+            log_entry = f"{details['timestamp']}, L2: {details['l2']:.3e}, Batch Size: {details['batch_size']}, Epochs: {details['epochs']}, Learning Rate: {details['learning_rate']}, GE: {details['ge']}, NT: {details['nt']}, PI: {details['pi']:.5e}\n"
             f.write(log_entry)
 
-
-# Loop over L1 regularization values
-for i, l1_val in enumerate(l1_values):
+# Loop over L2 regularization values
+for i, l2_val in enumerate(l2_values):
     if i == 0:  # Log the start marker only for the first iteration
-        log_details('l1_regularization_log.txt', {}, is_start=True)
+        log_details('l2_regularization_log.txt', {}, is_start=True)
 
-    print(f"Training with L1 regularization value: {l1_val}")
+    print(f"Training with L2 regularization value: {l2_val}")
 
-    # Define the model with L1 regularization
+    # Define the model with L2 regularization
     model = Sequential([
-        Dense(100, input_dim=profiling_set.shape[1], activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
+        Dense(100, input_dim=profiling_set.shape[1], activation='elu', kernel_regularizer=l2(l2_val)),
+        Dense(100, activation='elu', kernel_regularizer=l2(l2_val)),
+        Dense(100, activation='elu', kernel_regularizer=l2(l2_val)),
+        Dense(100, activation='elu', kernel_regularizer=l2(l2_val)),
         Dense(classes, activation='softmax')
     ])
 
-    batch_size = 200
+    # Compile and train the model
+    batch_size = 150
     epochs = 10
-    learning_rate = 0.001
+    learning_rate = 0.005
 
     model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=learning_rate), metrics=['accuracy'])
     history = model.fit(
@@ -88,17 +85,16 @@ for i, l1_val in enumerate(l1_values):
         epochs=epochs,
         verbose=1,
         validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
-        shuffle=True,
-        callbacks=[early_stopping]
+        shuffle=True
     )
 
     ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
-    results.append({'L1_value': l1_val, 'GE': ge, 'NT': nt, 'PI': pi})
+    results.append({'L2_value': l2_val, 'GE': ge, 'NT': nt, 'PI': pi})
 
     # Log the details
     details = {
         'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'l1': l1_val,
+        'l2': l2_val,
         'batch_size': batch_size,
         'epochs': epochs,
         'learning_rate': learning_rate,
@@ -107,48 +103,50 @@ for i, l1_val in enumerate(l1_values):
         'pi': pi
     }
 
-    log_details('l1_regularization_log.txt', details)
+    log_details('l2_regularization_log.txt', details)
 
-    if i == len(l1_values) - 1:  # Log the end marker only after the last iteration
-        log_details('l1_regularization_log.txt', {}, is_end=True)
+    if i == len(l2_values) - 1:  # Log the end marker only after the last iteration
+        log_details('l2_regularization_log.txt', {}, is_end=True)  # Changed to l2_regularization_log.txt
 
     # Clear the session and delete the model
     K.clear_session()
     del model
     gc.collect()  # Explicitly collect garbage
 
-# Plotting NT vs. L1
-l1_values = np.array([result['L1_value'] for result in results])
+# Plotting NT vs. L2
+l2_values = np.array([result['L2_value'] for result in results])
 nt_values = np.array([result['NT'] for result in results])
 
-# Sort the values by L1 to ensure correct plotting
-sorted_indices = np.argsort(l1_values)
-l1_values_sorted = l1_values[sorted_indices]
+# Sort the values by L2 to ensure correct plotting
+sorted_indices = np.argsort(l2_values)
+l2_values_sorted = l2_values[sorted_indices]
 nt_values_sorted = nt_values[sorted_indices]
 
 # Using LOWESS to smooth the NT values
-lowess_smoothed = lowess(nt_values_sorted, l1_values_sorted, frac=0.1)
+lowess_smoothed = lowess(nt_values_sorted, l2_values_sorted, frac=0.1)
 
-# Extract unique L1 values and their corresponding min/max NT values
-unique_l1_values = np.unique(l1_values_sorted)
-min_nt_values = [np.min(nt_values_sorted[l1_values_sorted == l1]) for l1 in unique_l1_values]
-max_nt_values = [np.max(nt_values_sorted[l1_values_sorted == l1]) for l1 in unique_l1_values]
+# Extract unique L2 values and their corresponding min/max NT values
+unique_l2_values = np.unique(l2_values_sorted)
+min_nt_values = [np.min(nt_values_sorted[l2_values_sorted == l2]) for l2 in unique_l2_values]
+max_nt_values = [np.max(nt_values_sorted[l2_values_sorted == l2]) for l2 in unique_l2_values]
 
 current_time = datetime.now().strftime("%Y-%m-%d_%H")
 
 plt.figure(figsize=(10, 6))
+
 # Plotting the smoothed trend line
 plt.plot(lowess_smoothed[:, 0], lowess_smoothed[:, 1], label='Smoothed NT', color='blue')
 
 # Filling between the min and max boundaries
-plt.fill_between(unique_l1_values, min_nt_values, max_nt_values, color='gray', alpha=0.3, label='Min/Max Band')
-plt.scatter(l1_values_sorted, nt_values_sorted, color='red', alpha=0.6, label='Original NT')
+plt.fill_between(unique_l2_values, min_nt_values, max_nt_values, color='gray', alpha=0.3, label='Min/Max Band')
 
-plt.title('NT vs. L1 Regularization')
-plt.xlabel('L1 Regularization Value')
+plt.scatter(l2_values_sorted, nt_values_sorted, color='red', alpha=0.6, label='Original NT')
+
+plt.title('NT vs. L2 Regularization')
+plt.xlabel('L2 Regularization Value')
 plt.ylabel('NT Metric')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(f'NT_vs_L1_{current_time}.png')
+plt.savefig(f'NT_vs_L2_{current_time}.png')  # Changed filename to reflect L2
 plt.show()

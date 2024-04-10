@@ -33,8 +33,7 @@ dataset_labels, dataset_properties = prepare_dataset(datasets_path, "ASCADf", ta
 in_file = h5py.File(dataset_properties["filepath"], "r")
 profiling_set = in_file['Profiling_traces/traces']
 validation_set = in_file['Attack_traces/traces'][:dataset_properties["n_val"]]
-attack_set = in_file['Attack_traces/traces'][
-             dataset_properties["n_val"]:dataset_properties["n_val"] + dataset_properties["n_attack"]]
+attack_set = in_file['Attack_traces/traces'][dataset_properties["n_val"]:dataset_properties["n_val"] + dataset_properties["n_attack"]]
 
 # Normalize the data
 scaler = StandardScaler()
@@ -42,8 +41,8 @@ profiling_set = scaler.fit_transform(profiling_set)
 validation_set = scaler.transform(validation_set)
 attack_set = scaler.transform(attack_set)
 
-# L1 regularization values to explore
-l1_values = np.linspace(0, 2.5e-4, 500)
+# Learning rate values to explore
+learning_rates = np.logspace(np.log10(5e-5), np.log10(5e-3), 200)
 
 results = []
 early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
@@ -55,37 +54,37 @@ def log_details(file_path, details, is_start=False, is_end=False):
         elif is_end:
             f.write("\n--- End of Execution ---\n\n")
         else:
-            # Log the details with formatted L1 value
-            log_entry = f"{details['timestamp']}, L1: {details['l1']:.3e}, Batch Size: {details['batch_size']}, Epochs: {details['epochs']}, Learning Rate: {details['learning_rate']}, GE: {details['ge']}, NT: {details['nt']}, PI: {details['pi']:.5e}\n"
+            # Log the details with formatted learning rate value
+            log_entry = f"{details['timestamp']}, Learning Rate: {details['learning_rate']:.3e}, Batch Size: {details['batch_size']}, Epochs: {details['epochs']}, L1: {details['l1']}, GE: {details['ge']}, NT: {details['nt']}, PI: {details['pi']:.5e}\n"
             f.write(log_entry)
 
-
-# Loop over L1 regularization values
-for i, l1_val in enumerate(l1_values):
+# Loop over learning rate values
+for i, lr in enumerate(learning_rates):
     if i == 0:  # Log the start marker only for the first iteration
-        log_details('l1_regularization_log.txt', {}, is_start=True)
+        log_details('learning_rate_log.txt', {}, is_start=True)
 
-    print(f"Training with L1 regularization value: {l1_val}")
+    print(f"Training with learning rate: {lr}")
 
-    # Define the model with L1 regularization
+    # Define the model (with L2 regularization as before)
     model = Sequential([
-        Dense(100, input_dim=profiling_set.shape[1], activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
-        Dense(100, activation='elu', kernel_regularizer=l1(l1_val)),
+        Dense(100, input_dim=profiling_set.shape[1], activation='elu', kernel_regularizer=l1(1e-4)),
+        Dense(100, activation='elu', kernel_regularizer=l1(1e-4)),
+        Dense(100, activation='elu', kernel_regularizer=l1(1e-4)),
+        Dense(100, activation='elu', kernel_regularizer=l1(1e-4)),
         Dense(classes, activation='softmax')
     ])
 
     batch_size = 200
     epochs = 10
-    learning_rate = 0.001
+    l1_value = 0.0001
 
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=learning_rate), metrics=['accuracy'])
+    # Compile and train the model with the current learning rate
+    model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=lr), metrics=['accuracy'])
     history = model.fit(
         x=profiling_set,
         y=dataset_labels.y_profiling[target_key_byte],
-        batch_size=batch_size,
-        epochs=epochs,
+        batch_size=200,
+        epochs=10,
         verbose=1,
         validation_data=(validation_set, dataset_labels.y_validation[target_key_byte]),
         shuffle=True,
@@ -93,62 +92,63 @@ for i, l1_val in enumerate(l1_values):
     )
 
     ge, nt, pi, ge_vector = attack(model, attack_set, dataset_labels, target_key_byte, classes)
-    results.append({'L1_value': l1_val, 'GE': ge, 'NT': nt, 'PI': pi})
+    results.append({'learning_rate': lr, 'GE': ge, 'NT': nt, 'PI': pi})
 
     # Log the details
     details = {
         'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'l1': l1_val,
+        'learning_rate': lr,
         'batch_size': batch_size,
         'epochs': epochs,
-        'learning_rate': learning_rate,
+        'l1': l1_value,
         'ge': ge,
         'nt': nt,
         'pi': pi
     }
 
-    log_details('l1_regularization_log.txt', details)
+    log_details('learning_rate_log.txt', details)
 
-    if i == len(l1_values) - 1:  # Log the end marker only after the last iteration
-        log_details('l1_regularization_log.txt', {}, is_end=True)
+    if i == len(learning_rates) - 1:  # Log the end marker only after the last iteration
+        log_details('learning_rate_log.txt', {}, is_end=True)
 
     # Clear the session and delete the model
     K.clear_session()
     del model
     gc.collect()  # Explicitly collect garbage
 
-# Plotting NT vs. L1
-l1_values = np.array([result['L1_value'] for result in results])
+# Plotting NT vs. Learning Rate with min/max band
+learning_rates = np.array([result['learning_rate'] for result in results])
 nt_values = np.array([result['NT'] for result in results])
 
-# Sort the values by L1 to ensure correct plotting
-sorted_indices = np.argsort(l1_values)
-l1_values_sorted = l1_values[sorted_indices]
+# Sort the values by learning rate to ensure correct plotting
+sorted_indices = np.argsort(learning_rates)
+learning_rates_sorted = learning_rates[sorted_indices]
 nt_values_sorted = nt_values[sorted_indices]
 
 # Using LOWESS to smooth the NT values
-lowess_smoothed = lowess(nt_values_sorted, l1_values_sorted, frac=0.1)
+lowess_smoothed = lowess(nt_values_sorted, learning_rates_sorted, frac=0.1)
 
-# Extract unique L1 values and their corresponding min/max NT values
-unique_l1_values = np.unique(l1_values_sorted)
-min_nt_values = [np.min(nt_values_sorted[l1_values_sorted == l1]) for l1 in unique_l1_values]
-max_nt_values = [np.max(nt_values_sorted[l1_values_sorted == l1]) for l1 in unique_l1_values]
-
+# Extract unique learning rate values and their corresponding min/max NT values
+unique_learning_rates = np.unique(learning_rates_sorted)
+min_nt_values = [np.min(nt_values_sorted[learning_rates_sorted == lr]) for lr in unique_learning_rates]
+max_nt_values = [np.max(nt_values_sorted[learning_rates_sorted == lr]) for lr in unique_learning_rates]
 current_time = datetime.now().strftime("%Y-%m-%d_%H")
-
 plt.figure(figsize=(10, 6))
+
 # Plotting the smoothed trend line
 plt.plot(lowess_smoothed[:, 0], lowess_smoothed[:, 1], label='Smoothed NT', color='blue')
 
 # Filling between the min and max boundaries
-plt.fill_between(unique_l1_values, min_nt_values, max_nt_values, color='gray', alpha=0.3, label='Min/Max Band')
-plt.scatter(l1_values_sorted, nt_values_sorted, color='red', alpha=0.6, label='Original NT')
+plt.fill_between(unique_learning_rates, min_nt_values, max_nt_values, color='gray', alpha=0.3, label='Min/Max Band')
 
-plt.title('NT vs. L1 Regularization')
-plt.xlabel('L1 Regularization Value')
+plt.scatter(learning_rates_sorted, nt_values_sorted, color='red', alpha=0.6, label='Original NT')
+
+plt.title('NT vs. Learning Rate')
+plt.xscale('log')  # Learning rates are on a log scale
+plt.xlabel('Learning Rate')
 plt.ylabel('NT Metric')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(f'NT_vs_L1_{current_time}.png')
+plt.savefig(f'NT_vs_Learning_Rate_{current_time}.png')
 plt.show()
